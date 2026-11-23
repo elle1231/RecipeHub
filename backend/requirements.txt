@@ -1,0 +1,12 @@
+# Web 框架
+fastapi>=0.110
+uvicorn>=0.29
+
+# 数据与配置
+sqlalchemy>=2.0
+pydantic>=2.7
+pydantic-settings>=2.2
+python-dotenv>=1.0
+
+# 测试
+httpx>=0.27
