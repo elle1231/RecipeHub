@@ -1,0 +1,17 @@
+# RecipeHub 本地基础设施（RH-04）
+# 启动：  docker compose up -d
+# 停止：  docker compose down
+# 重置：  docker compose down -v   （清空数据，慎用）
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: recipehub-qdrant
+    ports:
+      - "6333:6333" # HTTP / REST API
+      - "6334:6334" # gRPC
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    restart: unless-stopped
+
+volumes:
+  qdrant_storage:
