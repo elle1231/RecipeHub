@@ -13,6 +13,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.api import public_recipes_router, recipes_router, users_router
 from app.core.config import settings
 from app.db import init_db
 
@@ -25,6 +26,10 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title=settings.app_name, debug=settings.debug, lifespan=lifespan)
+
+app.include_router(recipes_router)
+app.include_router(public_recipes_router)
+app.include_router(users_router)
 
 
 @app.get("/health")
