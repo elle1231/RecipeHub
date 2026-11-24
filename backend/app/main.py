@@ -5,12 +5,26 @@
 
 健康检查：
     GET /health
+
+启动时会自动按 models 定义建表（幂等）；也可手动执行
+    python -m scripts.init_db
 """
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
 from app.core.config import settings
+from app.db import init_db
 
-app = FastAPI(title=settings.app_name, debug=settings.debug)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 启动时建表（幂等），保证干净环境也能直接跑起来。
+    init_db()
+    yield
+
+
+app = FastAPI(title=settings.app_name, debug=settings.debug, lifespan=lifespan)
 
 
 @app.get("/health")
