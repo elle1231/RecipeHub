@@ -23,6 +23,7 @@ class Recipe(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     owner_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True, nullable=True)
     source_recipe_id: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 导入自哪个公共菜谱
+    source: Mapped[str | None] = mapped_column(String(500))  # 公共菜谱数据来源（如 HowToCook 文件路径），用于溯源/授权，与 source_recipe_id 无关
 
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)

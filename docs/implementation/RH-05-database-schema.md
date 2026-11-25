@@ -22,7 +22,7 @@
 |---|---|---|
 | `users` | 用户 | `openid` 唯一索引（本地演示用测试 ID） |
 | `user_profiles` | 长期饮食画像 | `user_id` 唯一；偏好/忌口/过敏原用 JSON 数组 |
-| `recipes` | 菜谱主表 | `owner_id` 可空=公共菜谱；`source_recipe_id` 记录导入来源 |
+| `recipes` | 菜谱主表 | `owner_id` 可空=公共菜谱；`source_recipe_id` 记录导入来源；`source` 记录公共菜谱数据来源（RH-10 补入） |
 | `recipe_ingredients` | 食材 | `quantity` 用字符串，兼容「适量」「500克」 |
 | `recipe_steps` | 步骤 | `step_number` 保序 |
 | `recipe_versions` | 版本快照 | `parent_version_id` + `snapshot_json`，不覆盖原记录 |
