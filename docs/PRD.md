@@ -552,9 +552,13 @@ HTTPS、合法服务器域名、AppID、隐私保护配置并通过平台审核�
 
   方法   接口                           功能
   ------ ------------------------------ ------------------
-  GET    `/api/public-recipes`          浏览公共菜谱
+  GET    `/api/public-recipes`          浏览/搜索/筛选公共菜谱
   GET    `/api/public-recipes/{id}`     获取公共菜谱详情
-  GET    `/api/public-recipes/search`   搜索和筛选菜谱
+
+`/api/public-recipes` 通过 Query Parameters 统一支持分页（`skip`/`limit`）、
+关键词搜索（`q`，命中标题与描述）、分类（`category`）与菜系（`cuisine`）筛选。
+搜索与列表属于同一资源的不同查询视图，合并为同一端点，不单独提供 `/search`；
+后续可在此端点继续扩展排序（`sort`）等参数。
 
 ## 6.4 AI 食谱推荐
 

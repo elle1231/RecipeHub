@@ -32,7 +32,7 @@
 | PUT | `/api/recipes/{id}` | `RecipeUpdate` | `RecipeRead` | 更新菜谱 |
 | DELETE | `/api/recipes/{id}` | `X-User-Id` | 204 | 删除菜谱 |
 | POST | `/api/recipes/import` | `RecipeImportRequest` | `RecipeImportResponse` | 一键导入 |
-| GET | `/api/public-recipes` | `skip`,`limit` | `list[RecipeRead]` | 公共菜谱列表 |
+| GET | `/api/public-recipes` | `skip`,`limit`,`q`,`category`,`cuisine` | `list[RecipeRead]` | 公共菜谱列表/搜索/筛选 |
 | GET | `/api/public-recipes/{id}` | — | `RecipeRead` | 公共菜谱详情 |
 | GET | `/api/users/profile` | `X-User-Id` | `UserProfileRead` | 获取画像 |
 | PUT | `/api/users/profile` | `UserProfileUpdate` | `UserProfileRead` | 更新画像 |
@@ -52,7 +52,7 @@
 - **为什么用户标识走 `X-User-Id` 头而不是路径参数？**
   - 用户身份是横切关注点，属于「上下文」而不是「资源定位」，放 header（或未来 token）比塞进每个路径更干净；也方便之后无缝换成认证中间件，不改路由签名。
 - **为什么列表接口带 `skip`/`limit` 而不是一次返回全部？**
-  - 分页是列表接口的通用约束，Day 1 就定下来避免 Day 2 前端拿到几千条数据再改。搜索/筛选参数 Day 2 再加。
+  - 分页是列表接口的通用约束，Day 1 就定下来避免 Day 2 前端拿到几千条数据再改。搜索/筛选参数已在 Day 2（RH-08）以 Query Parameters（`q`/`category`/`cuisine`）加入。
 
 ## 5. 面试高频问题 & 回答要点
 
