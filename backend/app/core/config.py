@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     openai_base_url: str = ""
     llm_model: str = ""
     embedding_model: str = "BAAI/bge-small-zh-v1.5"
+    # 向量维度由 embedding_model 决定，必须与模型真实输出一致。
+    # BAAI/bge-small-zh-v1.5 输出 512 维。换模型后这里也要改，否则向旧
+    # Collection 写入不兼容向量（RH-17 建 Collection 时按此维度定死）。
+    embedding_dim: int = 512
 
     # 微信小程序
     wechat_appid: str = ""
