@@ -49,6 +49,8 @@ class PublicRecipeChunk(BaseModel):
     source: str | None = Field(default=None, description="数据出处（文件路径/来源名），版权溯源")
     category: str | None = None
     document_type: DocumentType = DocumentType.RECIPE
+    chunk_index: int = 0
+    total_chunks: int = 1
 
 
 class PersonalKitchenChunk(BaseModel):
@@ -67,3 +69,5 @@ class PersonalKitchenChunk(BaseModel):
     verified: bool = False
     visibility: str = "private"
     document_type: DocumentType = DocumentType.PERSONAL_RECIPE
+    chunk_index: int = 0
+    total_chunks: int = 1
