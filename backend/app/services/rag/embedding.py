@@ -40,6 +40,14 @@ class EmbeddingService(ABC):
         """把一批文本编码为向量，返回顺序与输入一致。"""
         raise NotImplementedError
 
+    def embed_query(self, query: str) -> list[float]:
+        """把检索 query 编码为单条向量。默认等价于 embed_texts，BGE 子类会加查询指令前缀。"""
+        return self.embed_texts([query])[0]
+
+
+# BGE 系列对短 query 推荐的指令前缀，能显著提升检索相关性。
+BGE_QUERY_PREFIX = "为这个句子生成表示以用于检索相关文章："
+
 
 class LocalBgeEmbedding(EmbeddingService):
     """本地 BGE 模型（sentence-transformers）。惰性加载：第一次 embed 才下载/加载模型。
@@ -69,6 +77,10 @@ class LocalBgeEmbedding(EmbeddingService):
         model = self._load()
         vectors = model.encode(texts, normalize_embeddings=True, show_progress_bar=False)
         return [v.tolist() for v in vectors]
+
+    def embed_query(self, query: str) -> list[float]:
+        # BGE 检索场景：query 侧加指令前缀，与「文档侧不加前缀」形成不对称编码，相关性更好。
+        return self.embed_texts([BGE_QUERY_PREFIX + query])[0]
 
 
 class OpenAICompatEmbedding(EmbeddingService):
