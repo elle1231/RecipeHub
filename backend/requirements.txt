@@ -11,6 +11,10 @@ python-dotenv>=1.0
 # 向量数据库
 qdrant-client>=1.9
 
+# Embedding（本地 BGE，默认后端；会连带装 torch，较大）
+# 若改用 OpenAI 兼容 API，可不装此项，改配 OPENAI_API_KEY / OPENAI_BASE_URL 即可
+sentence-transformers>=2.6
+
 # 测试
 httpx>=0.27
 pytest>=8.0

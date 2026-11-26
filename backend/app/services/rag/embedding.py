@@ -1,26 +1,37 @@
-"""Embedding 服务抽象（RH-17）。
+"""Embedding 服务（RH-19 补全真实后端）。
 
-职责：把一段文本变成一组浮点向量。向量维度必须和 Qdrant Collection
-的配置一致（RH-17 建 Collection 时按 settings.embedding_dim 定死）。
+三种后端，都实现同一接口 EmbeddingService：
+- LocalBgeEmbedding     本地 BGE 模型（sentence-transformers），默认，无需 API Key。
+- OpenAICompatEmbedding OpenAI 兼容的 /embeddings API（httpx 直连），配 key + base_url 即用。
+- DeterministicEmbedding 确定性哈希桩，仅测试 / 无模型联调，无语义。
 
-当前状态：真实模型（本地 BGE / OpenAI 兼容 API）到 RH-19 写向量时才
-真正接入，因为那一步才需要「成批地把 169 道菜谱正文编码成向量」。
-RH-17 只把接口和维度定下来，并提供 DeterministicEmbedding 作为
-「测试 / 无模型联调」的可替换方案——它不产生语义向量，只保证
-「同一段文本永远得到同一个向量」，用来打通 Collection 与检索链路。
+向量维度必须与 Qdrant Collection 一致（RH-17 按 settings.embedding_dim=512 建库）。
+换模型 = 换维度 = 要重建 Collection。
 """
 from __future__ import annotations
 
 import hashlib
+import importlib.util
+import logging
 from abc import ABC, abstractmethod
+
+import httpx
 
 from app.core.config import settings
 
-__all__ = ["EmbeddingService", "DeterministicEmbedding", "get_embedding_service"]
+logger = logging.getLogger(__name__)
+
+__all__ = [
+    "EmbeddingService",
+    "LocalBgeEmbedding",
+    "OpenAICompatEmbedding",
+    "DeterministicEmbedding",
+    "get_embedding_service",
+]
 
 
 class EmbeddingService(ABC):
-    """把文本编码为向量的服务。所有后端（本地 BGE / API / 测试桩）都实现它。"""
+    """把文本编码为向量的服务。所有后端都实现它。"""
 
     dimension: int
 
@@ -30,40 +41,103 @@ class EmbeddingService(ABC):
         raise NotImplementedError
 
 
+class LocalBgeEmbedding(EmbeddingService):
+    """本地 BGE 模型（sentence-transformers）。惰性加载：第一次 embed 才下载/加载模型。
+
+    依赖：pip install sentence-transformers（会连带 torch）。
+    模型名来自 settings.embedding_model，默认 BAAI/bge-small-zh-v1.5（512 维）。
+    """
+
+    def __init__(self, model_name: str | None = None, dimension: int | None = None):
+        self._model_name = model_name or settings.embedding_model
+        self._model = None
+        self.dimension = dimension or settings.embedding_dim
+
+    def _load(self):
+        if self._model is None:
+            try:
+                from sentence_transformers import SentenceTransformer
+            except ImportError as exc:  # pragma: no cover - 环境相关
+                raise RuntimeError(
+                    "未安装 sentence-transformers，无法使用本地 BGE embedding。"
+                    "请 pip install sentence-transformers，或改配 OPENAI_API_KEY 走兼容 API。"
+                ) from exc
+            self._model = SentenceTransformer(self._model_name)
+        return self._model
+
+    def embed_texts(self, texts: list[str]) -> list[list[float]]:
+        model = self._load()
+        vectors = model.encode(texts, normalize_embeddings=True, show_progress_bar=False)
+        return [v.tolist() for v in vectors]
+
+
+class OpenAICompatEmbedding(EmbeddingService):
+    """OpenAI 兼容的 /embeddings API（用 httpx 直连，不额外引入 openai 包）。
+
+    需要 settings.openai_api_key + settings.openai_base_url，模型名用 settings.embedding_model。
+    兼容任意 OpenAI 协议服务（SiliconFlow / DashScope / vLLM / Ollama 的 embeddings 端点等）。
+    """
+
+    def __init__(self, dimension: int | None = None):
+        self.dimension = dimension or settings.embedding_dim
+        self._base_url = settings.openai_base_url.rstrip("/")
+        self._api_key = settings.openai_api_key
+        self._model = settings.embedding_model
+
+    def embed_texts(self, texts: list[str]) -> list[list[float]]:
+        resp = httpx.post(
+            f"{self._base_url}/embeddings",
+            headers={"Authorization": f"Bearer {self._api_key}"},
+            json={"model": self._model, "input": texts},
+            timeout=60.0,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        # OpenAI 协议返回 data[{embedding, index}]，按 index 排序保证与输入顺序一致。
+        items = sorted(data["data"], key=lambda x: x["index"])
+        vectors = [item["embedding"] for item in items]
+        if vectors and self.dimension != len(vectors[0]):
+            logger.warning(
+                "API 返回维度 %s 与配置 embedding_dim=%s 不一致，检查 embedding_model",
+                len(vectors[0]), self.dimension,
+            )
+        return vectors
+
+
 class DeterministicEmbedding(EmbeddingService):
     """确定性哈希向量：仅用于测试 / 无模型联调，**不产生语义向量**。
 
-    用 SHA-256 把文本映射到固定维度的向量，满足：
-    - 同一文本永远得到同一向量（幂等，方便写断言）；
-    - 不同文本几乎不会碰撞（SHA-256 的均匀性）。
-    但向量之间没有语义相似度，检索结果无意义。真实 RAG 必须换真实模型。
+    用 SHA-256 把文本映射到固定维度，同一文本永远同向量、不同文本几乎不碰撞。
     """
 
     def __init__(self, dimension: int = settings.embedding_dim):
         self.dimension = dimension
 
     def embed_texts(self, texts: list[str]) -> list[list[float]]:
-        vectors: list[list[float]] = []
-        for text in texts:
-            vectors.append(self._embed_one(text))
-        return vectors
+        return [self._embed_one(t) for t in texts]
 
     def _embed_one(self, text: str) -> list[float]:
-        # 用 SHA-256 生成 32 字节，循环扩展到 dimension 维，再归一化到 [-1, 1]。
         digest = hashlib.sha256(text.encode("utf-8")).digest()
         vector: list[float] = []
         for i in range(self.dimension):
             byte = digest[i % len(digest)]
-            # 加一点点位置扰动，让不同维度位置不完全同值，避免向量退化成常数。
             vector.append(((byte / 127.5) - 1.0) + (i * 1e-4 % 1e-3))
         return vector
 
 
-def get_embedding_service() -> EmbeddingService:
-    """返回当前可用的 Embedding 服务。
+def _sentence_transformers_available() -> bool:
+    return importlib.util.find_spec("sentence_transformers") is not None
 
-    现阶段只有确定性桩。RH-19 在这里按 settings 切换：
-    - 配置了 OPENAI_API_KEY / OPENAI_BASE_URL → OpenAI 兼容 embedding API
-    - 否则 → 本地 BGE 模型（sentence-transformers / FlagEmbedding）
+
+def get_embedding_service() -> EmbeddingService:
+    """按 settings 选择可用的 Embedding 后端。
+
+    优先级：OpenAI 兼容 API（配了 key+base_url）> 本地 BGE（装了 sentence-transformers）
+    > 确定性桩（测试/联调，无语义）。
     """
-    return DeterministicEmbedding(dimension=settings.embedding_dim)
+    if settings.openai_api_key and settings.openai_base_url:
+        return OpenAICompatEmbedding()
+    if _sentence_transformers_available():
+        return LocalBgeEmbedding()
+    logger.warning("未配置真实 embedding，回退到确定性桩（无语义，仅用于打通链路）")
+    return DeterministicEmbedding()
