@@ -16,7 +16,7 @@ Day 3 的收尾，也是第一个真正调用 LLM 的环节：
 
 ## 3. 实现细节
 
-- **llm.py**：`OpenAICompatLLM.generate(messages)` 用 httpx 直连 `{base_url}/chat/completions`（OpenAI chat 格式，`temperature=0.3`）。`get_llm_service()` 需要 `openai_api_key` + `openai_base_url` + `llm_model` 三者齐备才返回实例，否则返回 `None`。
+- **llm.py**：`OpenAICompatLLM.generate(messages)` 用 httpx 直连 `{base_url}/chat/completions`（OpenAI chat 格式，`temperature` 走 `settings.llm_temperature`）。`get_llm_service()` 需要 `openai_api_key` + `openai_base_url` + `llm_model` 三者齐备才返回实例，否则返回 `None`。
 - **chain.py**：
   - `build_context(chunks)`：拼成 `【来源1】标题（公共菜谱）\n正文...` 的带编号上下文。
   - `rag_answer(...)`：检索 → `score >= MIN_SCORE(0.45)` 过滤 → 空则直接返回「没有找到相关内容」+ 空 sources（**不调 LLM**）→ 否则 `system + 参考资料 + 问题` 喂 LLM → 返回 `RagAskResponse(answer, sources)`。
@@ -42,8 +42,8 @@ Day 3 的收尾，也是第一个真正调用 LLM 的环节：
 **Q2：怎么防止 LLM 编造？**
 要点：三重防线——① 检索空/低于阈值直接不调 LLM；② system prompt 明确「只依据资料、不足则说明」；③ 返回 sources 让答案可追溯。第一版先做①②，后续可加 RAGAS faithfulness 评测（RH-45）。
 
-**Q3：`temperature` 为什么设低（0.3）？**
-要点：RAG 回答要**忠实于检索上下文**，低温度减少随机性、更贴近给定资料。高温度适合创意生成，不适合「有依据的问答」。
+**Q3：`temperature` 怎么定？**
+要点：默认 1.0（OpenAI 默认值，且推理模型如 Kimi K3 只允许 1）；普通对话模型想更忠实于上下文可调低到 0.3。做成 `settings.llm_temperature` 可配，避免写死 0.3 导致推理模型报 400。
 
 ## 6. 踩坑
 

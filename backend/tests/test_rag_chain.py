@@ -89,6 +89,10 @@ def test_get_llm_service_returns_llm_with_config(monkeypatch):
     assert isinstance(svc, OpenAICompatLLM)
 
 
-def test_rag_ask_endpoint_returns_503_without_llm(client):
+def test_rag_ask_endpoint_returns_503_without_llm(client, monkeypatch):
+    # 与真实 .env 是否配了 LLM 无关：直接 mock 工厂返回 None，验证 503 路径。
+    import app.api.rag as rag_api
+
+    monkeypatch.setattr(rag_api, "get_llm_service", lambda: None)
     resp = client.post("/api/rag/ask", json={"question": "番茄炒蛋怎么做"})
     assert resp.status_code == 503

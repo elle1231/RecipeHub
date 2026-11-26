@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_base_url: str = ""
     llm_model: str = ""
+    # LLM 温度，默认 1.0（OpenAI 默认值，兼容推理模型如 Kimi K3 只允许 1）。
+    llm_temperature: float = 1.0
     embedding_model: str = "BAAI/bge-small-zh-v1.5"
     # 向量维度由 embedding_model 决定，必须与模型真实输出一致。
     # BAAI/bge-small-zh-v1.5 输出 512 维。换模型后这里也要改，否则向旧

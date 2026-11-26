@@ -38,7 +38,7 @@ class OpenAICompatLLM(LLMService):
         resp = httpx.post(
             f"{self._base_url}/chat/completions",
             headers={"Authorization": f"Bearer {self._api_key}"},
-            json={"model": self._model, "messages": messages, "temperature": 0.3},
+            json={"model": self._model, "messages": messages, "temperature": settings.llm_temperature},
             timeout=60.0,
         )
         resp.raise_for_status()
