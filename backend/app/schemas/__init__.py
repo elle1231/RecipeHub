@@ -1,5 +1,6 @@
 """Pydantic Schema 统一入口。"""
 from app.schemas.profile import UserProfileRead, UserProfileUpdate
+from app.schemas.rag import RagAskRequest, RagAskResponse
 from app.schemas.recipe import (
     RecipeCreate,
     RecipeImportRequest,
@@ -15,6 +16,8 @@ from app.schemas.recipe import (
 __all__ = [
     "UserProfileRead",
     "UserProfileUpdate",
+    "RagAskRequest",
+    "RagAskResponse",
     "RecipeCreate",
     "RecipeImportRequest",
     "RecipeImportResponse",
